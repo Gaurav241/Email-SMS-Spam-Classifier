@@ -6,6 +6,7 @@
 - [Deployed Website](#deployed-website)
 - [Features](#features)
 - [Technologies Used](#technologies-used)
+- [Installation](#installation)
 - [Contributions](#contributions)
 - [License](#license)
 
@@ -62,6 +63,30 @@ The classifier is accessible online at [Spam Classifier Web App](https://email-s
 
 **Design Software:**
 - Figma
+
+## Installation
+
+### Prerequisites
+Before installing the application, ensure you have the following installed on your machine:
+- Python (3.8 or newer)
+- pip (Python package installer)
+
+### Steps
+To get the Spam Classifier up and running locally on your machine, please follow the steps below:
+
+1. **Clone the repository:**
+   ```
+   git clone https://github.com/yourusername/email-sms-spam-classifier.git
+   cd email-sms-spam-classifier
+   ```
+2. **Install required Python packages:**
+   ```
+   pip install -r requirements.txt
+   ```
+3. **Run the Streamlit application:**
+    ```
+    streamlit run app.py
+    ```
 
 ## Contributions
 
