@@ -1,85 +1,107 @@
+import os
 import json
 import streamlit as st
 import pickle
 import string
-from nltk.corpus import stopwords
 import nltk
+from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from streamlit_lottie import st_lottie
 import time
 
-# Load NLTK resources
-nltk.download('punkt')
-nltk.download('stopwords')
+# ========== CRITICAL NLTK SETUP ==========
+@st.cache_resource
+def setup_nltk():
+    try:
+        # Set custom path for NLTK data in Streamlit Cloud
+        nltk_data_path = os.path.join(os.getcwd(), "nltk_data")
+        os.makedirs(nltk_data_path, exist_ok=True)
+        nltk.data.path.append(nltk_data_path)
+        
+        # Download required data if not found
+        if not nltk.data.find('tokenizers/punkt'):
+            nltk.download('punkt', download_dir=nltk_data_path)
+        if not nltk.data.find('corpora/stopwords'):
+            nltk.download('stopwords', download_dir=nltk_data_path)
+        
+        # Verify punkt is accessible
+        nltk.data.find('tokenizers/punkt')
+        return True
+    except Exception as e:
+        st.error(f"NLTK setup failed: {str(e)}")
+        return False
 
-# Create a PorterStemmer object
+if not setup_nltk():
+    st.stop()
+
+# ========== MODEL LOADING ==========
+@st.cache_resource
+def load_models():
+    try:
+        with open('vectorizer.pkl', 'rb') as f:
+            tfidf = pickle.load(f)
+        with open('model.pkl', 'rb') as f:
+            model = pickle.load(f)
+        return tfidf, model
+    except Exception as e:
+        st.error(f"Model loading failed: {str(e)}")
+        st.stop()
+
+tfidf, model = load_models()
+
+# ========== TEXT PROCESSING ==========
 ps = PorterStemmer()
 
-# Load the vectorizer and model from pickle files
-tfidf = pickle.load(open('vectorizer.pkl', 'rb'))
-model = pickle.load(open('model.pkl', 'rb'))
-
-# Function to load Lottie file
-def load_lottiefile(filepath: str):
-    with open(filepath, 'r') as f:
-        return json.load(f)
-
-# Function to transform text
 def transform_text(text: str) -> str:
-    text = text.lower()
-    text = nltk.word_tokenize(text)
-    text = [word for word in text if word.isalnum()]
-    text = [word for word in text if word not in stopwords.words('english') and word not in string.punctuation]
-    text = [ps.stem(word) for word in text]
-    return ' '.join(text)
+    try:
+        text = text.lower()
+        text = nltk.word_tokenize(text)
+        text = [word for word in text if word.isalnum()]
+        text = [word for word in text if word not in stopwords.words('english')]
+        text = [ps.stem(word) for word in text]
+        return ' '.join(text)
+    except Exception as e:
+        st.error(f"Text processing error: {str(e)}")
+        return ""
 
-# App layout
-st.image("logo.svg")
-st.title("Identify spam messages with a click of a button")
-st.markdown('Protect yourself from *getting spammed* by using this service.')
+# ========== STREAMLIT UI ==========
+st.set_page_config(page_title="Spam Classifier", layout="centered")
 
-# Columns for layout
-col1, col2, col3 = st.columns((1.5, 0.5, 1))
-
+# Header
+col1, col2 = st.columns([3, 1])
 with col1:
-    st.header("How it works")
-    st.markdown("This application uses **Multinomial Naive Bayes** to classify messages into Spam or Not Spam.   "
-                "*The **precision** of the result is 100% and the **accuracy** is 97.2%.*")
+    st.title("📧 Spam Message Classifier")
+    st.markdown("Identify spam messages with **97.2% accuracy**")
 
 with col2:
-    st.text("")
+    try:
+        lottie_spam = json.load(open("side_image.json"))
+        st_lottie(lottie_spam, height=150)
+    except:
+        st.warning("Animation not available")
 
-with col3:
-    lottie_spam = load_lottiefile("side_image.json")
-    st_lottie(
-        lottie_spam,
-        speed=0.5,
-        reverse=False,
-        loop=True,
-        quality="high",
-        key=None,
-        height=250,
-        width=250,
-    )
+# Input
+input_msg = st.text_area("Enter your message:", height=150, 
+                        placeholder="Paste an email or SMS message here...")
 
-# Input message area
-st.header("Email/SMS Spam Classifier")
-input_msg = st.text_area("Enter the message")
-
-# Predict button
-if st.button('Predict'):
-    # Preprocess input message
-    transformed_msg = transform_text(input_msg)
-    # Vectorize input message
-    vector_input = tfidf.transform([transformed_msg])
-    # Predict spam or not spam
-    result = model.predict(vector_input)[0]
-    # Display result
-    if result == 1:
-        with st.spinner('Wait for it...'):
-            time.sleep(1)
-        st.error("This is a Spam message")
+if st.button("Analyze", type="primary"):
+    if not input_msg.strip():
+        st.warning("Please enter a message")
     else:
-        with st.spinner('Wait for it...'):
-            time.sleep(1)
-        st.success("This is not a Spam Message")
+        with st.spinner("Analyzing..."):
+            try:
+                processed = transform_text(input_msg)
+                vector = tfidf.transform([processed])
+                result = model.predict(vector)[0]
+                
+                if result == 1:
+                    st.error("🚨 This is SPAM")
+                else:
+                    st.success("✅ This is NOT spam")
+                    
+                st.info(f"Processed text: _{processed}_")
+                
+            except Exception as e:
+                st.error(f"Analysis failed: {str(e)}")
+
+st.caption("Note: This model has 97.2% accuracy on test data")
