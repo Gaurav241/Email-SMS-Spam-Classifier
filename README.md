@@ -87,6 +87,10 @@ To get the Spam Classifier up and running locally on your machine, please follow
     ```
     streamlit run app.py
     ```
+4. **Use this Command to run the app**
+   ```
+   python -m streamlit run app.py
+   ```
 
 ## Contributions
 
